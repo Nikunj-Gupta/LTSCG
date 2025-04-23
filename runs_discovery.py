@@ -19,7 +19,7 @@ file = f"""#!/bin/bash
 #SBATCH --mem=128G
 #SBATCH --time=48:00:00 
 
-conda activate ltscg
+conda activate qgnn
 module load gcc/11.3.0 git/2.36.1
 
 echo "Starting parallel job script"

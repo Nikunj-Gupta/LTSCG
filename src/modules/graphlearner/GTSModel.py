@@ -156,6 +156,7 @@ class GTSModel(nn.Module, Seq2SeqAttrs):
         self.bn3 = torch.nn.BatchNorm1d(self.embedding_dim)
         self.fc_out = nn.Linear(self.embedding_dim * 2, self.embedding_dim)
         self.fc_cat = nn.Linear(self.embedding_dim, 2)
+        self.device = next(self.parameters()).device
 
     def GetWeightedEdgeOneHot(self, sum_adj):
         device = sum_adj.device
@@ -215,6 +216,13 @@ class GTSModel(nn.Module, Seq2SeqAttrs):
         :param batches_seen: batches seen till now
         :return: output: (self.horizon, batch_size, self.num_nodes * self.output_dim)
         """
+        device      = next(self.parameters()).device
+        inputs      = inputs.to(device)
+        node_feas   = node_feas.to(device)
+        batch_graph = batch_graph.to(device)
+        if labels is not None and isinstance(labels, torch.Tensor):
+            label   = label.to(device)
+
         x = node_feas
         x = self.conv1(x)
         x = F.relu(x)

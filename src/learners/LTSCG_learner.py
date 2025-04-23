@@ -58,17 +58,17 @@ class LTSCGLearner(QLearner):
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
         avail_actions = batch['avail_actions']
 
-
-        obs = episode_sample['obs'][:, :]
+        device = next(self.graph_input_obs_MLP.parameters()).device
+        obs = episode_sample['obs'][:, :].to(device)
         obs = obs.permute(2, 0, 1, 3)
         episode_obs = obs.reshape(self.args.n_agents, batch.batch_size, -1)
-        input_obs = batch['obs'][:, :-1].transpose(1, 0)
-        input_last_a = batch['actions'][:, :-1].transpose(1, 0)
+        input_obs = batch['obs'][:, :-1].transpose(1, 0).to(device)
+        input_last_a = batch['actions'][:, :-1].transpose(1, 0).to(device)
         obs_with_action = th.cat([input_obs, input_last_a], dim=3)
 
 
         encoder_input = obs_with_action.reshape(max_ep_t - 1, batch.batch_size, -1)
-        graph = batch['graph'][:, :]
+        graph = batch['graph'][:, :].to(device)
         self.graph_learner = self.graph_learner.train()
         gumbel_adj,graph_decoder_out = self.graph_learner(1, encoder_input, episode_obs, graph, self.temperature, 1, 1, 1)
         
@@ -90,13 +90,17 @@ class LTSCGLearner(QLearner):
         avg_pool = th.mean((graph_embeddings_collection[-1]), dim=2).transpose(1, 0)
 
         graph_obs_emb = self.graph_output_MLP.forward(avg_pool) 
-        state_emb = self.state_MLP(batch['state'][:, :-1])
+        # state_emb = self.state_MLP(batch['state'][:, :-1])
+        state_input = batch['state'][:, :-1].to(device)
+        state_emb   = self.state_MLP(state_input)
         g_loss = nn.MSELoss()
         gstate_loss = g_loss(graph_obs_emb, state_emb)
 
         ############### obs t and next obs loss ##############
         graph_obs_emb = self.graph_obs_MLP.forward(input_obs + graph_decoder_out) 
-        next_obs_emb = self.next_obs_MLP.forward(batch["obs"][:, 1:].transpose(1,0)) 
+        # next_obs_emb = self.next_obs_MLP.forward(batch["obs"][:, 1:].transpose(1,0)) 
+        next_obs_input = batch["obs"][:, 1:].transpose(1,0).to(device)
+        next_obs_emb   = self.next_obs_MLP(next_obs_input)
         gobs_loss = g_loss(graph_obs_emb, next_obs_emb)
         
         
@@ -135,7 +139,7 @@ class LTSCGLearner(QLearner):
         total_loss = loss + gstate_loss + gobs_loss
 
         self.optimiser.zero_grad()
-        total_loss.backward()
+        total_loss.backward(retain_graph=True)
         grad_norm = th.nn.utils.clip_grad_norm_(self.params, self.args.grad_norm_clip)
         self.optimiser.step()
 
