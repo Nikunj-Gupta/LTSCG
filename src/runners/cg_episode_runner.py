@@ -29,7 +29,11 @@ class CGEpisodeRunner(EpisodeRunner):
             # # SopcgMAC
             graphs, actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
 
-            reward, terminated, env_info = self.env.step(actions[0])
+            if self.args.env == "gymma": 
+                _, reward, terminated, truncated, env_info = self.env.step(actions[0]) 
+            else: 
+                reward, terminated, env_info = self.env.step(actions[0]) 
+
             episode_return += reward
 
             post_transition_data = {
